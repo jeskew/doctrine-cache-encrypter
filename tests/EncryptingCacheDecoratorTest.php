@@ -56,11 +56,11 @@ class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
 
     public function invalidParameterProvider()
     {
-        return [
-            ['not a certificate', 'not a PEM-formatted key'],
-            [self::getCertificate(), 'not a PEM-formatted key'],
-            ['not a certificate', self::getKey()],
-        ];
+        return array(
+            array('not a certificate', 'not a PEM-formatted key'),
+            array(self::getCertificate(), 'not a PEM-formatted key'),
+            array('not a certificate', self::getKey()),
+        );
     }
 
     public function testProxiesContainsCallsToDecoratedCache()
