@@ -106,12 +106,7 @@ class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
             ->with(
                 $this->equalTo($id),
                 $this->callback(function ($arg) use ($privateKey, $data) {
-                    if ($arg == $data) {
-                        return false;
-                    }
-
-                    openssl_private_decrypt($arg['data'], $decrypted, $privateKey);
-                    return unserialize($decrypted) == $data;
+                    return $arg != $data;
                 }),
                 $this->equalTo(0)
             );
@@ -153,6 +148,11 @@ class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
             array(array('key' => 'value')),
             array(array('one', 2, 3.0)),
             array(new \ArrayObject()),
+            array(array(
+                'one' => str_repeat('x', 1024*512),
+                'two' => str_repeat('y', 1024*512),
+                'three' => str_repeat('z', 1024*512),
+            )),
         );
     }
 

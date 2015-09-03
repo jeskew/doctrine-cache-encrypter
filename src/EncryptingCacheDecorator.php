@@ -57,8 +57,13 @@ class EncryptingCacheDecorator implements Cache
     public function fetch($id)
     {
         $stored = $this->decorated->fetch($id);
-        if (isset($stored['data'])) {
-            openssl_private_decrypt($stored['data'], $decrypted, $this->privateKey);
+        if (isset($stored['data']) && isset($stored['key'])) {
+            openssl_open(
+                base64_decode($stored['data']),
+                $decrypted,
+                base64_decode($stored['key']),
+                $this->privateKey
+            );
             return unserialize($decrypted);
         }
 
@@ -70,10 +75,17 @@ class EncryptingCacheDecorator implements Cache
      */
     public function save($id, $data, $ttl = 0)
     {
-        openssl_public_encrypt(serialize($data), $encrypted, $this->publicKey);
+        openssl_seal(serialize($data), $encrypted, $keys, array($this->publicKey));
 
         return $this->decorated
-            ->save($id, array('data' => $encrypted), $ttl);
+            ->save(
+                $id,
+                array(
+                    'data' => base64_encode($encrypted),
+                    'key' => base64_encode($keys[0]),
+                ),
+                $ttl
+            );
     }
 
     /**
