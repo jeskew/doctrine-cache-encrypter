@@ -63,16 +63,6 @@ class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
         );
     }
 
-    public function testProxiesContainsCallsToDecoratedCache()
-    {
-        $id = microtime();
-
-        $this->decorated->expects($this->once())
-            ->method('contains')
-            ->with($id);
-        $this->instance->contains($id);
-    }
-
     public function testProxiesDeleteCallsToDecoratedCache()
     {
         $id = microtime();
@@ -138,6 +128,59 @@ class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
     public function testReturnsFalseWhenFetchCalledWithUnrecognizedKey()
     {
         $this->assertFalse($this->instance->fetch('Kalamazoo'));
+    }
+
+    /**
+     * @dataProvider cacheableDataProvider
+     *
+     * @param mixed $data
+     */
+    public function testReturnsFalseWhenFetchRetrievesUnencryptedData($data)
+    {
+        $this->decorated = new ArrayCache;
+        $this->instance = new EncryptingCacheDecorator(
+            $this->decorated,
+            self::getCertificate(),
+            self::getKey()
+        );
+        $id = microtime();
+
+        $this->decorated->save($id, $data);
+        $this->assertEquals($data, $this->decorated->fetch($id));
+        $this->assertFalse($this->instance->fetch($id));
+    }
+
+    public function testContainsReturnsFalseWhenDecoratedCacheHasNoData()
+    {
+        $this->decorated = new ArrayCache;
+        $this->instance = new EncryptingCacheDecorator(
+            $this->decorated,
+            self::getCertificate(),
+            self::getKey()
+        );
+        $id = microtime();
+
+        $this->assertFalse($this->instance->contains($id));
+    }
+
+    /**
+     * @dataProvider cacheableDataProvider
+     *
+     * @param mixed $data
+     */
+    public function testContainsReturnsFalseWhenKeyHasUnencryptedData($data)
+    {
+        $this->decorated = new ArrayCache;
+        $this->instance = new EncryptingCacheDecorator(
+            $this->decorated,
+            self::getCertificate(),
+            self::getKey()
+        );
+        $id = microtime();
+
+        $this->decorated->save($id, $data);
+        $this->assertTrue($this->decorated->contains($id));
+        $this->assertFalse($this->instance->contains($id));
     }
 
     public function cacheableDataProvider()

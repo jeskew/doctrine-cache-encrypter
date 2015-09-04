@@ -11,6 +11,15 @@ tools you know and love. If you have data that needs a higher degree of security
 than the rest of your cache, you can store and access it via an 
 `EncryptingCacheDecorator`.
 
+## Caveats
+
+Encryption and decryption are both expensive operations, and frequent reads from
+an encrypted data store can quickly become a bottleneck in otherwise performant
+applications. Use encrypted caches sparingly (i.e., **do not** use an encrypting
+decorator around your Doctrine Annotations cache).
+
+## Usage
+
 First, create your Doctrine-based cache as you normally would:
 ```php
 $cache = new \Doctrine\Common\Cache\RedisCache($redisClient);
@@ -42,7 +51,7 @@ keyspace, they will not be able to read each other's data. The `$encryptedCache`
 will return `false` if asked to read unencrypted data, and the regular `$cache`
 will return gibberish if asked to read encrypted data.
 
-### What if my private key has a passphrase? And what if I don't like your choice of cipher?
+## What if my private key has a passphrase? And what if I don't like your choice of cipher?
 
 You can provide an array of options as a fourth parameter to the
 `EncryptingCacheDecorator`'s constructor. You can use it to override the default

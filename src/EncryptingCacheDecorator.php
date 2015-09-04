@@ -67,7 +67,7 @@ class EncryptingCacheDecorator implements Cache
     public function fetch($id)
     {
         $stored = $this->decorated->fetch($id);
-        if (isset($stored['encrypted']) && isset($stored['key'])) {
+        if ($this->isDataEncrypted($stored)) {
             openssl_open(
                 base64_decode($stored['encrypted']),
                 $decrypted,
@@ -110,8 +110,11 @@ class EncryptingCacheDecorator implements Cache
      */
     public function contains($id)
     {
-        return $this->decorated
-            ->contains($id);
+        if ($stored = $this->decorated->fetch($id)) {
+            return $this->isDataEncrypted($stored);
+        }
+
+        return false;
     }
 
     /**
@@ -135,5 +138,10 @@ class EncryptingCacheDecorator implements Cache
     private function validateOpenSslKey($key)
     {
         return is_resource($key) && 'OpenSSL key' === get_resource_type($key);
+    }
+
+    private function isDataEncrypted($data)
+    {
+        return isset($data['encrypted']) && isset($data['key']);
     }
 }
