@@ -32,9 +32,7 @@ class EncryptingCacheDecorator implements Cache
         $cipher = 'aes-256-ecb'
     ) {
         $this->publicKey = @openssl_pkey_get_public($cert);
-        if (!is_resource($this->publicKey)
-            || 'OpenSSL key' !== get_resource_type($this->publicKey)
-        ) {
+        if (!$this->validateOpenSslKey($this->publicKey)) {
             throw new IAE('Unable to create public key from provided'
                 . ' certificate. Certificate must be a valid x509 certificate,'
                 . ' a PEM encoded certificate, or a path to a file containing a'
@@ -42,9 +40,7 @@ class EncryptingCacheDecorator implements Cache
         }
 
         $this->privateKey = @openssl_pkey_get_private($key, $passphrase);
-        if (!is_resource($this->privateKey)
-            || 'OpenSSL key' !== get_resource_type($this->publicKey)
-        ) {
+        if (!$this->validateOpenSslKey($this->privateKey)) {
             throw new IAE('Unable to create private key from provided key. Key'
                 . ' must be a PEM encoded private key or a path to a file'
                 . ' containing a PEM encoded private key.');
@@ -129,5 +125,10 @@ class EncryptingCacheDecorator implements Cache
     {
         return $this->decorated
             ->delete($id);
+    }
+
+    private function validateOpenSslKey($key)
+    {
+        return is_resource($key) && 'OpenSSL key' === get_resource_type($key);
     }
 }
