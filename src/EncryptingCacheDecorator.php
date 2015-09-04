@@ -15,12 +15,16 @@ class EncryptingCacheDecorator implements Cache
     /** @var string */
     private $cipher;
 
+    private static $defaultOptions = array(
+        'passphrase' => null,
+        'cipher' => 'aes-256-ecb',
+    );
+
     /**
      * @param Cache $decorated
      * @param mixed $cert
      * @param mixed $key
-     * @param string|null $passphrase
-     * @param string $cipher
+     * @param array $opts
      *
      * @throws IAE If either key is not an OpenSSL Key resource.
      */
@@ -28,9 +32,10 @@ class EncryptingCacheDecorator implements Cache
         Cache $decorated,
         $cert,
         $key,
-        $passphrase = null,
-        $cipher = 'aes-256-ecb'
+        array $opts = array()
     ) {
+        $opts += self::$defaultOptions;
+
         $this->publicKey = @openssl_pkey_get_public($cert);
         if (!$this->validateOpenSslKey($this->publicKey)) {
             throw new IAE('Unable to create public key from provided'
@@ -39,7 +44,7 @@ class EncryptingCacheDecorator implements Cache
                 . ' PEM encoded certificate.');
         }
 
-        $this->privateKey = @openssl_pkey_get_private($key, $passphrase);
+        $this->privateKey = @openssl_pkey_get_private($key, $opts['passphrase']);
         if (!$this->validateOpenSslKey($this->privateKey)) {
             throw new IAE('Unable to create private key from provided key. Key'
                 . ' must be a PEM encoded private key or a path to a file'
@@ -47,7 +52,7 @@ class EncryptingCacheDecorator implements Cache
         }
 
         $this->decorated = $decorated;
-        $this->cipher = $cipher;
+        $this->cipher = $opts['cipher'];
     }
 
     public function __destruct()
@@ -62,9 +67,9 @@ class EncryptingCacheDecorator implements Cache
     public function fetch($id)
     {
         $stored = $this->decorated->fetch($id);
-        if (isset($stored['data']) && isset($stored['key'])) {
+        if (isset($stored['encrypted']) && isset($stored['key'])) {
             openssl_open(
-                base64_decode($stored['data']),
+                base64_decode($stored['encrypted']),
                 $decrypted,
                 base64_decode($stored['key']),
                 $this->privateKey,
@@ -93,7 +98,7 @@ class EncryptingCacheDecorator implements Cache
             ->save(
                 $id,
                 array(
-                    'data' => base64_encode($encrypted),
+                    'encrypted' => base64_encode($encrypted),
                     'key' => base64_encode($keys[0]),
                 ),
                 $ttl
