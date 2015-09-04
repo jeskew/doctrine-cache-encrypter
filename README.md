@@ -27,7 +27,7 @@ $cache = new \Doctrine\Common\Cache\RedisCache($redisClient);
 
 Second, wrap your cache with an encrypting decorator:
 ```php
-$encryptedCache = new \Jeskew\EncryptingCacheDecorator(
+$encryptedCache = new \Jeskew\Cache\EncryptingCacheDecorator(
     $cache,
     'file:///path/to/certificate.pem',
     'file:///path/to/private/key.pem'
