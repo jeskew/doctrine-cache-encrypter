@@ -142,6 +142,8 @@ class EncryptingCacheDecorator implements Cache
 
     private function isDataEncrypted($data)
     {
-        return isset($data['encrypted']) && isset($data['key']);
+        return is_array($data)
+            && isset($data['encrypted'])
+            && isset($data['key']);
     }
 }
