@@ -12,17 +12,25 @@ class EncryptingCacheDecorator implements Cache
     private $publicKey;
     /** @var resource */
     private $privateKey;
+    /** @var string */
+    private $cipher;
 
     /**
      * @param Cache $decorated
      * @param mixed $cert
      * @param mixed $key
-     * @param string|null $password
+     * @param string|null $passphrase
+     * @param string $cipher
      *
      * @throws IAE If either key is not an OpenSSL Key resource.
      */
-    public function __construct(Cache $decorated, $cert, $key, $password = null)
-    {
+    public function __construct(
+        Cache $decorated,
+        $cert,
+        $key,
+        $passphrase = null,
+        $cipher = 'aes-256-ecb'
+    ) {
         $this->publicKey = @openssl_pkey_get_public($cert);
         if (!is_resource($this->publicKey)
             || 'OpenSSL key' !== get_resource_type($this->publicKey)
@@ -33,7 +41,7 @@ class EncryptingCacheDecorator implements Cache
                 . ' PEM encoded certificate.');
         }
 
-        $this->privateKey = @openssl_pkey_get_private($key, $password);
+        $this->privateKey = @openssl_pkey_get_private($key, $passphrase);
         if (!is_resource($this->privateKey)
             || 'OpenSSL key' !== get_resource_type($this->publicKey)
         ) {
@@ -43,6 +51,7 @@ class EncryptingCacheDecorator implements Cache
         }
 
         $this->decorated = $decorated;
+        $this->cipher = $cipher;
     }
 
     public function __destruct()
@@ -62,7 +71,8 @@ class EncryptingCacheDecorator implements Cache
                 base64_decode($stored['data']),
                 $decrypted,
                 base64_decode($stored['key']),
-                $this->privateKey
+                $this->privateKey,
+                $this->cipher
             );
             return unserialize($decrypted);
         }
@@ -75,7 +85,13 @@ class EncryptingCacheDecorator implements Cache
      */
     public function save($id, $data, $ttl = 0)
     {
-        openssl_seal(serialize($data), $encrypted, $keys, array($this->publicKey));
+        openssl_seal(
+            serialize($data),
+            $encrypted,
+            $keys,
+            array($this->publicKey),
+            $this->cipher
+        );
 
         return $this->decorated
             ->save(
