@@ -4,63 +4,22 @@ namespace Jeskew\Cache;
 use Doctrine\Common\Cache\ArrayCache;
 use Doctrine\Common\Cache\Cache;
 
-/**
- * @requires extension openssl
- */
-class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
+abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
 {
-    /** @var string */
-    private static $certificate;
-    /** @var string */
-    private static $key;
-    /** @var resource */
-    private static $pKey;
-    /** @var \PHPUnit_Framework_MockObject_MockObject|Cache */
-    private $decorated;
-    /** @var EncryptingCacheDecorator */
-    private $instance;
+    /**
+     * @var \PHPUnit_Framework_MockObject_MockObject|Cache
+     */
+    protected $decorated;
 
-    public static function setUpBeforeClass()
-    {
-        self::setUpCertAndKey();
-    }
+    /**
+     * @var EncryptingCacheDecorator
+     */
+    protected $instance;
 
     public function setUp()
     {
         $this->decorated = $this->getMock('Doctrine\Common\Cache\Cache');
-        $this->instance = new EncryptingCacheDecorator(
-            $this->decorated,
-            self::getCertificate(),
-            self::getKey()
-        );
-    }
-
-    public static function tearDownAfterClass()
-    {
-        // clean up the key pair
-        openssl_pkey_free(self::$pKey);
-    }
-
-    /**
-     * @dataProvider invalidParameterProvider
-     *
-     * @param $certificate
-     * @param $key
-     *
-     * @expectedException \InvalidArgumentException
-     */
-    public function testVerifiesCertificateAndKey($certificate, $key)
-    {
-        new EncryptingCacheDecorator($this->decorated, $certificate, $key);
-    }
-
-    public function invalidParameterProvider()
-    {
-        return array(
-            array('not a certificate', 'not a PEM-formatted key'),
-            array(self::getCertificate(), 'not a PEM-formatted key'),
-            array('not a certificate', self::getKey()),
-        );
+        $this->instance = $this->getInstance($this->decorated);
     }
 
     public function testProxiesDeleteCallsToDecoratedCache()
@@ -88,14 +47,13 @@ class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
      */
     public function testEncryptsDataBeforePassingToDecoratedCache($data)
     {
-        $privateKey = self::$pKey;
         $id = microtime();
 
         $this->decorated->expects($this->once())
             ->method('save')
             ->with(
                 $this->equalTo($id),
-                $this->callback(function ($arg) use ($privateKey, $data) {
+                $this->callback(function ($arg) use ($data) {
                     return $arg != $data;
                 }),
                 $this->equalTo(0)
@@ -109,20 +67,16 @@ class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
      *
      * @param mixed $data
      */
-    public function testDecryptsDataFetchedDecoratedCache($data)
+    public function testDecryptsDataFetchedFromDecoratedCache($data)
     {
-        $this->decorated = new ArrayCache;
-        $this->instance = new EncryptingCacheDecorator(
-            $this->decorated,
-            self::getCertificate(),
-            self::getKey()
-        );
+        $decorated = new ArrayCache;
+        $instance = $this->getInstance($decorated);
         $id = microtime();
 
-        $this->instance
-            ->save($id, $data, 0);
-        $this->assertNotEquals($data, $this->decorated->fetch($id));
-        $this->assertEquals($data, $this->instance->fetch($id));
+        $instance->save($id, $data, 0);
+
+        $this->assertNotEquals($data, $decorated->fetch($id));
+        $this->assertEquals($data, $instance->fetch($id));
     }
 
     public function testReturnsFalseWhenFetchCalledWithUnrecognizedKey()
@@ -137,30 +91,23 @@ class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
      */
     public function testReturnsFalseWhenFetchRetrievesUnencryptedData($data)
     {
-        $this->decorated = new ArrayCache;
-        $this->instance = new EncryptingCacheDecorator(
-            $this->decorated,
-            self::getCertificate(),
-            self::getKey()
-        );
+        $decorated = new ArrayCache;
+        $instance = $this->getInstance($decorated);
         $id = microtime();
 
-        $this->decorated->save($id, $data);
-        $this->assertEquals($data, $this->decorated->fetch($id));
-        $this->assertFalse($this->instance->fetch($id));
+        $decorated->save($id, $data);
+
+        $this->assertEquals($data, $decorated->fetch($id));
+        $this->assertFalse($instance->fetch($id));
     }
 
     public function testContainsReturnsFalseWhenDecoratedCacheHasNoData()
     {
-        $this->decorated = new ArrayCache;
-        $this->instance = new EncryptingCacheDecorator(
-            $this->decorated,
-            self::getCertificate(),
-            self::getKey()
-        );
+        $decorated = new ArrayCache;
+        $instance = $this->getInstance($decorated);
         $id = microtime();
 
-        $this->assertFalse($this->instance->contains($id));
+        $this->assertFalse($instance->contains($id));
     }
 
     /**
@@ -170,17 +117,13 @@ class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
      */
     public function testContainsReturnsFalseWhenKeyHasUnencryptedData($data)
     {
-        $this->decorated = new ArrayCache;
-        $this->instance = new EncryptingCacheDecorator(
-            $this->decorated,
-            self::getCertificate(),
-            self::getKey()
-        );
+        $decorated = new ArrayCache;
+        $instance = $this->getInstance($decorated);
         $id = microtime();
 
-        $this->decorated->save($id, $data);
-        $this->assertTrue($this->decorated->contains($id));
-        $this->assertFalse($this->instance->contains($id));
+        $decorated->save($id, $data);
+        $this->assertTrue($decorated->contains($id));
+        $this->assertFalse($instance->contains($id));
     }
 
     public function cacheableDataProvider()
@@ -199,34 +142,9 @@ class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
         );
     }
 
-    private static function setUpCertAndKey()
-    {
-        if (empty(self::$pKey)) {
-            // create a new key pair
-            self::$pKey = openssl_pkey_new();
-
-            // extract the private key
-            openssl_pkey_export(self::$pKey, self::$key);
-
-            // extract the public key
-            $csr = openssl_csr_new(array(), self::$pKey);
-            $x509 = openssl_csr_sign($csr, null, self::$pKey, 1);
-            openssl_x509_export($x509, self::$certificate);
-            openssl_x509_free($x509);
-        }
-    }
-
-    private static function getCertificate()
-    {
-        self::setUpCertAndKey();
-
-        return self::$certificate;
-    }
-
-    private static function getKey()
-    {
-        self::setUpCertAndKey();
-
-        return self::$key;
-    }
+    /**
+     * @param Cache $decorated
+     * @return EncryptingCacheDecorator
+     */
+    abstract protected function getInstance(Cache $decorated);
 }
