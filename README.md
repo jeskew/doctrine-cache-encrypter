@@ -56,14 +56,14 @@ You can provide an array of options as a fourth parameter to the
 passphrase (`null`) or the default cipher (`AES-256-ECB`). Data is encrypted
 using `openssl_seal`, which only supports `RC4` and `ECB`-mode ciphers.
 
-## Wait, isn't ECB-mode broken?
+## Is AES-256-ECB sufficiently secure for my needs?
 
-Electronic Codebook (ECB) mode is not "broken," but it can leak information
-about recurring patterns in text that has been encrypted. [This Stack Exchange
-answer](http://crypto.stackexchange.com/a/20946/27519) demonstrates how.
-However, because `openssl_seal` uses a random key each time it is called, this
-will only leak patterns within a **single** cache entry, not across multiple
-cache entries.
+AES-256 is approved by the NSA to protect top secret information, but its ECB
+mode can leave plaintext data patterns in encrypted ciphertext. [This Stack
+Exchange answer](http://crypto.stackexchange.com/a/20946/27519) demonstrates
+how. However, because `openssl_seal` uses a random key each time it is called,
+this will only leak patterns within a **single** cache entry, not across
+multiple cache entries.
 
 If attackers being able to detect patterns in your encrypted plaintext is
 unacceptable, you can layer two instances of `EncryptingCacheDecorator` over
