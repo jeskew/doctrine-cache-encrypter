@@ -135,9 +135,9 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
             array(array('one', 2, 3.0)),
             array(new \ArrayObject()),
             array(array(
-                'one' => str_repeat('x', 1024*512),
-                'two' => str_repeat('y', 1024*512),
-                'three' => str_repeat('z', 1024*512),
+                'one' => str_repeat('x', 1024*1024),
+                'two' => str_repeat('y', 1024*1024),
+                'three' => str_repeat('z', 1024*1024),
             )),
         );
     }

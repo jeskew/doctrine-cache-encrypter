@@ -3,7 +3,7 @@ namespace Jeskew\Cache;
 
 use Doctrine\Common\Cache\Cache;
 
-class SymmetricEncryptionDecorator extends EncryptingCacheDecorator
+class PasswordEncryptionDecorator extends EncryptingCacheDecorator
 {
     /** @var string */
     private $cipher;

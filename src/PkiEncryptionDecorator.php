@@ -4,10 +4,12 @@ namespace Jeskew\Cache;
 use Doctrine\Common\Cache\Cache;
 use InvalidArgumentException as IAE;
 
-class AsymmetricEncryptionDecorator extends EncryptingCacheDecorator
+class PkiEncryptionDecorator extends EncryptingCacheDecorator
 {
-    /** @var resource */
-    private $publicKey;
+    /** @var resource[] */
+    private $publicKeys;
+    /** @var string */
+    private $publicKeyFingerprint;
     /** @var resource */
     private $privateKey;
     /** @var string */
@@ -15,7 +17,7 @@ class AsymmetricEncryptionDecorator extends EncryptingCacheDecorator
 
     /**
      * @param Cache $decorated
-     * @param mixed $cert
+     * @param array $certs
      * @param mixed $key
      * @param string|null $passphrase
      * @param string $cipher
@@ -24,27 +26,32 @@ class AsymmetricEncryptionDecorator extends EncryptingCacheDecorator
      */
     public function __construct(
         Cache $decorated,
-        $cert,
+        array $certs,
         $key,
         $passphrase = null,
         $cipher = 'aes-256-ecb'
     ) {
         parent::__construct($decorated);
-        $this->setPublicKey($cert);
         $this->setPrivateKey($key, $passphrase);
         $this->cipher = $cipher;
+        foreach ($certs as $cert) {
+            $this->addPublicKey($cert);
+        }
     }
 
     public function __destruct()
     {
-        openssl_free_key($this->publicKey);
+        foreach ($this->publicKeys as $publicKey) {
+            openssl_free_key($publicKey);
+        }
         openssl_free_key($this->privateKey);
     }
 
     protected function isDataDecryptable($data)
     {
         return is_array($data)
-            && $this->arrayHasKeys($data, array('encrypted', 'key', 'cipher'))
+            && $this->arrayHasKeys($data, array('encrypted', 'keys', 'cipher'))
+            && isset($data['keys'][$this->publicKeyFingerprint])
             && $data['cipher'] === $this->cipher;
     }
 
@@ -54,13 +61,16 @@ class AsymmetricEncryptionDecorator extends EncryptingCacheDecorator
             serialize($data),
             $encrypted,
             $keys,
-            array($this->publicKey),
+            $this->publicKeys,
             $this->cipher
         );
 
         return array(
             'encrypted' => base64_encode($encrypted),
-            'key' => base64_encode($keys[0]),
+            'keys' => array_combine(
+                array_keys($this->publicKeys),
+                array_map('base64_encode', $keys)
+            ),
             'cipher' => $this->cipher,
         );
     }
@@ -70,7 +80,7 @@ class AsymmetricEncryptionDecorator extends EncryptingCacheDecorator
         openssl_open(
             base64_decode($data['encrypted']),
             $decrypted,
-            base64_decode($data['key']),
+            base64_decode($data['keys'][$this->publicKeyFingerprint]),
             $this->privateKey,
             $this->cipher
         );
@@ -78,15 +88,24 @@ class AsymmetricEncryptionDecorator extends EncryptingCacheDecorator
         return unserialize($decrypted);
     }
 
-    private function setPublicKey($cert)
+    private function addPublicKey($cert)
     {
-        $this->publicKey = @openssl_pkey_get_public($cert);
-        if (!$this->validateOpenSslKey($this->publicKey)) {
+        $publicKey = @openssl_pkey_get_public($cert);
+        if (!$this->validateOpenSslKey($publicKey)) {
             throw new IAE('Unable to create public key from provided'
                 . ' certificate. Certificate must be a valid x509 certificate,'
                 . ' a PEM encoded certificate, or a path to a file containing a'
                 . ' PEM encoded certificate.');
         }
+
+        $this->publicKeys[$this->getPublicKeyPrint($publicKey)] = $publicKey;
+    }
+
+    private function getPublicKeyPrint($key)
+    {
+        $details = openssl_pkey_get_details($key);
+
+        return md5($details['key']);
     }
 
     private function setPrivateKey($key, $passphrase)
@@ -97,6 +116,8 @@ class AsymmetricEncryptionDecorator extends EncryptingCacheDecorator
                 . ' must be a PEM encoded private key or a path to a file'
                 . ' containing a PEM encoded private key.');
         }
+
+        $this->publicKeyFingerprint = $this->getPublicKeyPrint($this->privateKey);
     }
 
     private function validateOpenSslKey($key)
