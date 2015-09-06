@@ -5,6 +5,7 @@
 [![Code Coverage](https://scrutinizer-ci.com/g/jeskew/doctrine-cache-encrypter/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/jeskew/doctrine-cache-encrypter/?branch=master)
 [![Apache 2 License](https://img.shields.io/packagist/l/jeskew/doctrine-cache-encrypter.svg?style=flat)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Total Downloads](https://img.shields.io/packagist/dt/jeskew/doctrine-cache-encrypter.svg?style=flat)](https://packagist.org/packages/jeskew/doctrine-cache-encrypter)
+[![Author](http://img.shields.io/badge/author-@jreskew-blue.svg?style=flat-square)](https://twitter.com/jreskew)
 
 Having to encrypt your data at rest shouldn't keep you from using the open-source
 tools you know and love. If you have data that needs a higher degree of security
@@ -20,6 +21,11 @@ decorator around your Doctrine Annotations cache).
 
 ## Usage
 
+> This package provides two cache decorators, one that encrypts data using
+a pass phrase and one that does so with public and private keys. The
+implementation using a pass phrase is the more performant of the two but
+requires that you securely deploy a plaintext password.
+
 First, create your Doctrine-based cache as you normally would:
 ```php
 $cache = new \Doctrine\Common\Cache\RedisCache($redisClient);
@@ -27,17 +33,12 @@ $cache = new \Doctrine\Common\Cache\RedisCache($redisClient);
 
 Second, wrap your cache with an encrypting decorator:
 ```php
-$encryptedCache = new \Jeskew\Cache\EncryptingCacheDecorator(
+$encryptedCache = new \Jeskew\Cache\PasswordEncryptionDecorator(
     $cache,
-    'file:///path/to/certificate.pem',
-    'file:///path/to/private/key.pem'
+    $password,
+    $cipher // optional, defaults to 'aes-256-cfb'
 );
 ```
-
-> The certificate can be a valid x509 certificate, a path to a PEM-encoded
-certificate file (the path must be prefaced with `file://`), or a PEM-encoded
-certificate string. The private key can be a path to a PEM-encoded private key
-file (the path must be prefaced with `file://`), or a PEM-encoded certificate string.
 
 Then use your `$cache` and `$encryptedCache` like you normally would:
 ```php
@@ -51,61 +52,54 @@ keyspace, they will not be able to read each other's data. The `$encryptedCache`
 will return `false` if asked to read unencrypted data, and the regular `$cache`
 will return gibberish if asked to read encrypted data.
 
-You can provide an array of options as a fourth parameter to the
-`EncryptingCacheDecorator`'s constructor. You can use it to override the default
-passphrase (`null`) or the default cipher (`AES-256-ECB`). Data is encrypted
-using `openssl_seal`, which only supports `RC4` and `ECB`-mode ciphers.
+## Encrypting your cache without sharing secrets
+
+If you'd rather not rely on a shared password, the `PkiEncryptionDecorator` can
+secure your sensitive cache entries using public/private key pairs. You can
+encrypt an entry against multiple public keys, and it will be decryptable by any
+of their private counterparts.
+
+```php
+$encryptedCache = new \Jeskew\Cache\PkiEncryptionDecorator(
+    $cache,
+    [
+        'file:///path/to/certificate.pem',
+        'file:///path/to/other/certificate.pem',
+    ],
+    'file:///path/to/private/key.pem',
+    $passphrase_for_private_key_file, // optional, defaults to null
+    $cipher // optional, defaults to 'aes-256-ecb'
+);
+```
+
+> The certificates can be a valid x509 certificate, a path to a PEM-encoded
+certificate file (the path must be prefaced with `file://`), or a PEM-encoded
+certificate string. The private key can be a path to a PEM-encoded private key
+file (the path must be prefaced with `file://`), or a PEM-encoded certificate string.
 
 ## Is AES-256-ECB sufficiently secure for my needs?
 
-AES-256 is approved by the NSA to protect top secret information, but its ECB
-mode can leave plaintext data patterns in encrypted ciphertext. [This Stack
-Exchange answer](http://crypto.stackexchange.com/a/20946/27519) demonstrates
-how. However, because `openssl_seal` uses a random key each time it is called,
-this will only leak patterns within a **single** cache entry, not across
-multiple cache entries.
+AES-256 is approved by the NSA to protect top secret information, but ECB mode
+can leave plaintext data patterns in encrypted ciphertext. [This Stack Exchange
+answer](http://crypto.stackexchange.com/a/20946/27519) demonstrates how. The
+`PkiEncryptionDecorator` relies on `openssl_seal`, which only supports RC4 (a
+broken cipher) and the ECB modes of several block ciphers. However, because
+`openssl_seal` uses a random key each time it is called, this will only leak
+patterns within a **single** cache entry, not across multiple cache entries.
 
 If attackers being able to detect patterns in your encrypted plaintext is
-unacceptable, you can layer two instances of `EncryptingCacheDecorator` over
-your cache, each with a different cipher. `RC4` is a broken cipher that should
-not be used on its own but can be counted on to scramble your input.
+unacceptable, you can layer two encrypting decorators over your cache. Using a
+`PasswordEncryptionDecorator` with a hardcoded password and a fast stream cipher
+like `RC4` will reliably scramble your input.
 ```php
 use Doctrine\Common\Cache\RedisCache;
-use Jeskew\Cache\EncryptingCacheDecorator;
+use Jeskew\Cache\PasswordEncryptionDecorator;
+use Jeskew\Cache\PkiEncryptionDecorator;
 
 $cache = new RedisCache($redisClient);
-$encryptedCache = new EncryptingCacheDecorator(
-    new EncryptingCacheDecorator(
-        $cache,
-        'file:///path/to/certificate.pem',
-        'file:///path/to/private/key.pem',
-        ['cipher' => 'RC4']
-    ),
+$encryptedCache = new PkiEncryptionDecorator(
+    new PasswordEncryptionDecorator($cache, 'abc123', 'RC4'),
     'file:///path/to/certificate.pem',
     'file:///path/to/private/key.pem'
 );
 ```
-
-## Do I really need to decrypt the same key multiple times?
-
-Decryption is computationally expensive. If you need to access the same
-sensitive data multiple times in the same process, you might want to layer
-an in-memory cache on top of your encrypted cache using Doctrine's `ChainCache`.
-```php
-use Doctrine\Common\Cache\ArrayCache;
-use Doctrine\Common\Cache\ChainCache;
-
-$cache = new ChainCache([
-    new ArrayCache,
-    $encryptedCache
-]);
-
-// this will read from the encrypted cache and save to the ArrayCache
-$superSensitive = $cache->fetch('super_sensitive');
-
-// this will read already-decrypted data from the ArrayCache
-$superSensitive = $cache->fetch('super_sensitive');
-```
-
-This can help if you're required to encrypt data at rest but are under no such
-restrictions regarding data that resides purely in volatile memory.
