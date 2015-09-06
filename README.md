@@ -99,7 +99,7 @@ use Jeskew\Cache\PkiEncryptionDecorator;
 $cache = new RedisCache($redisClient);
 $encryptedCache = new PkiEncryptionDecorator(
     new PasswordEncryptionDecorator($cache, 'abc123', 'RC4'),
-    'file:///path/to/certificate.pem',
+    ['file:///path/to/certificate.pem'],
     'file:///path/to/private/key.pem'
 );
 ```
