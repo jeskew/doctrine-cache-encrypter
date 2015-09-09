@@ -15,7 +15,7 @@ class PkiEncryptionDecoratorTest extends EncryptingCacheDecoratorTest
     {
         return new PkiEncryptionDecorator(
             $decorated,
-            array(self::getCertificate()),
+            [self::getCertificate()],
             self::getKey()
         );
     }
@@ -35,24 +35,24 @@ class PkiEncryptionDecoratorTest extends EncryptingCacheDecoratorTest
 
     public function invalidParameterProvider()
     {
-        return array(
-            array(array('not a certificate'), 'not a PEM-formatted key'),
-            array(array(self::getCertificate()), 'not a PEM-formatted key'),
-            array(array('not a certificate'), self::getKey()),
-        );
+        return [
+            [['not a certificate'], 'not a PEM-formatted key'],
+            [[self::getCertificate()], 'not a PEM-formatted key'],
+            [['not a certificate'], self::getKey()],
+        ];
     }
 
     public function testEncryptsDataAgainstMultipleKeys()
     {
-        $certPairs = array(array(
+        $certPairs = [[
             'public' => self::getCertificate(),
             'private' => self::getKey(),
-        ));
+        ]];
         self::clearCertAndKey();
-        $certPairs []= array(
+        $certPairs []= [
             'public' => self::getCertificate(),
             'private' => self::getKey(),
-        );
+        ];
 
         $decorated = new ArrayCache;
         $instance1 = new PkiEncryptionDecorator(
@@ -87,7 +87,7 @@ class PkiEncryptionDecoratorTest extends EncryptingCacheDecoratorTest
             openssl_pkey_export($pKey, self::$key);
 
             // extract the public key
-            $csr = openssl_csr_new(array(), $pKey);
+            $csr = openssl_csr_new([], $pKey);
             $x509 = openssl_csr_sign($csr, null, $pKey, 1);
             openssl_x509_export($x509, self::$certificate);
 

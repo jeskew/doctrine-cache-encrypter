@@ -128,18 +128,18 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
 
     public function cacheableDataProvider()
     {
-        return array(
-            array(1),
-            array('string'),
-            array(array('key' => 'value')),
-            array(array('one', 2, 3.0)),
-            array(new \ArrayObject()),
-            array(array(
+        return [
+            [1],
+            ['string'],
+            [['key' => 'value']],
+            [['one', 2, 3.0]],
+            [new \ArrayObject()],
+            [[
                 'one' => str_repeat('x', 1024*1024),
                 'two' => str_repeat('y', 1024*1024),
                 'three' => str_repeat('z', 1024*1024),
-            )),
-        );
+            ]],
+        ];
     }
 
     /**

@@ -50,7 +50,7 @@ class PkiEncryptionDecorator extends EncryptingCacheDecorator
     protected function isDataDecryptable($data)
     {
         return is_array($data)
-            && $this->arrayHasKeys($data, array('encrypted', 'keys', 'cipher'))
+            && $this->arrayHasKeys($data, ['encrypted', 'keys', 'cipher'])
             && isset($data['keys'][$this->publicKeyFingerprint])
             && $data['cipher'] === $this->cipher;
     }
@@ -65,14 +65,14 @@ class PkiEncryptionDecorator extends EncryptingCacheDecorator
             $this->cipher
         );
 
-        return array(
+        return [
             'encrypted' => base64_encode($encrypted),
             'keys' => array_combine(
                 array_keys($this->publicKeys),
                 array_map('base64_encode', $keys)
             ),
             'cipher' => $this->cipher,
-        );
+        ];
     }
 
     protected function decrypt($data)
@@ -103,9 +103,7 @@ class PkiEncryptionDecorator extends EncryptingCacheDecorator
 
     private function getPublicKeyPrint($key)
     {
-        $details = openssl_pkey_get_details($key);
-
-        return md5($details['key']);
+        return md5(openssl_pkey_get_details($key)['key']);
     }
 
     private function setPrivateKey($key, $passphrase)

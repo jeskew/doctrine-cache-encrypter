@@ -13,7 +13,7 @@ class PasswordEncryptionDecorator extends EncryptingCacheDecorator
     public function __construct(
         Cache $decorated,
         $passphrase,
-        $cipher = 'aes-256-cbc'
+        $cipher = 'aes256'
     ) {
         parent::__construct($decorated);
         $this->passphrase = $passphrase;
@@ -23,7 +23,7 @@ class PasswordEncryptionDecorator extends EncryptingCacheDecorator
     protected function isDataDecryptable($data)
     {
         return is_array($data)
-            && $this->arrayHasKeys($data, array('encrypted', 'iv', 'cipher'))
+            && $this->arrayHasKeys($data, ['encrypted', 'iv', 'cipher'])
             && $data['cipher'] === $this->cipher;
     }
 
@@ -33,9 +33,9 @@ class PasswordEncryptionDecorator extends EncryptingCacheDecorator
             openssl_cipher_iv_length($this->cipher)
         );
 
-        return array(
+        return [
             'cipher' => $this->cipher,
-            'iv' => $iv,
+            'iv' => base64_encode($iv),
             'encrypted' => openssl_encrypt(
                 serialize($data),
                 $this->cipher,
@@ -43,7 +43,7 @@ class PasswordEncryptionDecorator extends EncryptingCacheDecorator
                 0,
                 $iv
             ),
-        );
+        ];
     }
 
     protected function decrypt($data)
@@ -53,7 +53,7 @@ class PasswordEncryptionDecorator extends EncryptingCacheDecorator
             $this->cipher,
             $this->passphrase,
             0,
-            $data['iv']
+            base64_decode($data['iv'])
         ));
     }
 }
