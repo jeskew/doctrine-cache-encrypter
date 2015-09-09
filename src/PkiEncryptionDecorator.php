@@ -57,13 +57,8 @@ class PkiEncryptionDecorator extends EncryptingCacheDecorator
 
     protected function encrypt($data)
     {
-        openssl_seal(
-            serialize($data),
-            $encrypted,
-            $keys,
-            $this->publicKeys,
-            $this->cipher
-        );
+        $data = serialize($data);
+        openssl_seal($data, $encrypted, $keys, $this->publicKeys, $this->cipher);
 
         return [
             'encrypted' => base64_encode($encrypted),
