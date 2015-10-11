@@ -36,7 +36,7 @@ Second, wrap your cache with an encrypting decorator:
 $encryptedCache = new \Jeskew\Cache\PasswordEncryptionDecorator(
     $cache,
     $password,
-    $cipher // optional, defaults to 'aes-256-cfb'
+    $cipher // optional, defaults to 'aes256'
 );
 ```
 
