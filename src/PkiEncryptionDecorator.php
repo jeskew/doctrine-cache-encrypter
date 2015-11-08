@@ -47,26 +47,29 @@ class PkiEncryptionDecorator extends EncryptingCacheDecorator
         openssl_free_key($this->privateKey);
     }
 
-    protected function isDataDecryptable($data)
+    protected function isDataDecryptable($data, $id)
     {
         return is_array($data)
-            && $this->arrayHasKeys($data, ['encrypted', 'keys', 'cipher'])
+            && $this->arrayHasKeys($data, ['encrypted', 'keys', 'cipher', 'mac'])
             && isset($data['keys'][$this->publicKeyFingerprint])
-            && $data['cipher'] === $this->cipher;
+            && $data['cipher'] === $this->cipher
+            && $data['mac'] === $this->hmac($data['encrypted'], $id);
     }
 
-    protected function encrypt($data)
+    protected function encrypt($data, $id)
     {
         $data = serialize($data);
         openssl_seal($data, $encrypted, $keys, $this->publicKeys, $this->cipher);
+        $encrypted = base64_encode($encrypted);
 
         return [
-            'encrypted' => base64_encode($encrypted),
+            'encrypted' => $encrypted,
             'keys' => array_combine(
                 array_keys($this->publicKeys),
                 array_map('base64_encode', $keys)
             ),
             'cipher' => $this->cipher,
+            'mac' => $this->hmac($encrypted, $id),
         ];
     }
 

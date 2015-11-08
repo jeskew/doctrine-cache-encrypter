@@ -22,7 +22,7 @@ abstract class EncryptingCacheDecorator implements Cache
     public function fetch($id)
     {
         $stored = $this->decorated->fetch($id);
-        if ($this->isDataDecryptable($stored)) {
+        if ($this->isDataDecryptable($stored, $id)) {
             return $this->decrypt($stored);
         }
 
@@ -35,7 +35,7 @@ abstract class EncryptingCacheDecorator implements Cache
     public function save($id, $data, $ttl = 0)
     {
         return $this->decorated
-            ->save($id, $this->encrypt($data), $ttl);
+            ->save($id, $this->encrypt($data, $id), $ttl);
     }
 
     /**
@@ -44,7 +44,7 @@ abstract class EncryptingCacheDecorator implements Cache
     public function contains($id)
     {
         if ($stored = $this->decorated->fetch($id)) {
-            return $this->isDataDecryptable($stored);
+            return $this->isDataDecryptable($stored, $id);
         }
 
         return false;
@@ -79,9 +79,14 @@ abstract class EncryptingCacheDecorator implements Cache
         return true;
     }
 
-    abstract protected function encrypt($data);
+    protected function hmac($encrypted, $id)
+    {
+        return hash_hmac('sha256', $encrypted, $id);
+    }
+
+    abstract protected function encrypt($data, $id);
 
     abstract protected function decrypt($data);
 
-    abstract protected function isDataDecryptable($data);
+    abstract protected function isDataDecryptable($data, $id);
 }
