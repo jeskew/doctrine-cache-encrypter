@@ -1,9 +1,9 @@
 <?php
-namespace Jeskew\Cache;
+namespace Jsq\Cache;
 
 use Doctrine\Common\Cache\Cache;
 
-abstract class EncryptingCacheDecorator implements Cache
+abstract class EncryptingDecorator implements Cache
 {
     /** @var Cache */
     protected $decorated;
@@ -68,17 +68,6 @@ abstract class EncryptingCacheDecorator implements Cache
             ->delete($id);
     }
 
-    protected function arrayHasKeys(array $input, array $keys)
-    {
-        foreach ($keys as $key) {
-            if (empty($input[$key])) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     protected function hmac($encrypted, $id)
     {
         return hash_hmac('sha256', $encrypted, $id);
@@ -89,4 +78,21 @@ abstract class EncryptingCacheDecorator implements Cache
     abstract protected function decrypt($data);
 
     abstract protected function isDataDecryptable($data, $id);
+
+    protected function generateIv($method)
+    {
+        return openssl_random_pseudo_bytes(
+            openssl_cipher_iv_length($method)
+        );
+    }
+
+    protected function encryptString($string, $method, $key, $iv)
+    {
+        return openssl_encrypt($string, $method, $key, 0, $iv);
+    }
+
+    protected function decryptString($string, $method, $key, $iv)
+    {
+        return openssl_decrypt($string, $method, $key, 0, $iv);
+    }
 }

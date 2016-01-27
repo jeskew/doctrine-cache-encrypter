@@ -1,5 +1,5 @@
 {
-    "name": "jeskew/doctrine-cache-encrypter",
+    "name": "jsq/doctrine-cache-encrypter",
     "description": "An encrypting decorator for instances of Doctrine\\Common\\Cache\\Cache",
     "minimum-stability": "stable",
     "license": "Apache-2.0",
@@ -19,12 +19,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Jeskew\\Cache\\": "src/"
+            "Jsq\\Cache\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Jeskew\\Cache\\": "tests/"
+            "Jsq\\Cache\\": "tests/"
         }
     }
 }
