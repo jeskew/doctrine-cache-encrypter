@@ -1,8 +1,9 @@
 <?php
-namespace Jeskew\Cache;
+namespace Jsq\Cache;
 
 use Doctrine\Common\Cache\ArrayCache;
 use Doctrine\Common\Cache\Cache;
+use Doctrine\Common\Cache\FilesystemCache;
 
 abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
 {
@@ -12,19 +13,30 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
     protected $decorated;
 
     /**
-     * @var EncryptingCacheDecorator
+     * @var EncryptingDecorator
      */
     protected $instance;
+
+    /**
+     * @var FilesystemCache
+     */
+    protected $fsCache;
 
     public function setUp()
     {
         $this->decorated = $this->getMock('Doctrine\Common\Cache\Cache');
         $this->instance = $this->getInstance($this->decorated);
+        $this->fsCache = new FilesystemCache(sys_get_temp_dir().'/'.uniqid());
+    }
+
+    public function tearDown()
+    {
+        $this->fsCache->deleteAll();
     }
 
     public function testProxiesDeleteCallsToDecoratedCache()
     {
-        $id = microtime();
+        $id = uniqid(time());
 
         $this->decorated->expects($this->once())
             ->method('delete')
@@ -47,14 +59,16 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
      */
     public function testEncryptsDataBeforePassingToDecoratedCache($data)
     {
-        $id = microtime();
+        $id = uniqid(time());
 
         $this->decorated->expects($this->once())
             ->method('save')
             ->with(
                 $this->equalTo($id),
                 $this->callback(function ($arg) use ($data) {
-                    return $arg != $data;
+                    return $arg !== $data
+                        && $arg instanceof EncryptedValue
+                        && $data !== $arg->getCipherText();
                 }),
                 $this->equalTo(0)
             );
@@ -69,13 +83,12 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
      */
     public function testDecryptsDataFetchedFromDecoratedCache($data)
     {
-        $decorated = new ArrayCache;
-        $instance = $this->getInstance($decorated);
-        $id = microtime();
+        $instance = $this->getInstance($this->fsCache);
+        $id = uniqid(time());
 
         $instance->save($id, $data, 0);
 
-        $this->assertNotEquals($data, $decorated->fetch($id));
+        $this->assertNotEquals($data, $this->fsCache->fetch($id));
         $this->assertEquals($data, $instance->fetch($id));
     }
 
@@ -93,7 +106,7 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
     {
         $decorated = new ArrayCache;
         $instance = $this->getInstance($decorated);
-        $id = microtime();
+        $id = uniqid(time());
 
         $decorated->save($id, $data);
 
@@ -103,9 +116,8 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
 
     public function testContainsReturnsFalseWhenDecoratedCacheHasNoData()
     {
-        $decorated = new ArrayCache;
-        $instance = $this->getInstance($decorated);
-        $id = microtime();
+        $instance = $this->getInstance(new ArrayCache);
+        $id = uniqid(time());
 
         $this->assertFalse($instance->contains($id));
     }
@@ -119,7 +131,7 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
     {
         $decorated = new ArrayCache;
         $instance = $this->getInstance($decorated);
-        $id = microtime();
+        $id = uniqid(time());
 
         $decorated->save($id, $data);
         $this->assertTrue($decorated->contains($id));
@@ -144,7 +156,7 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @param Cache $decorated
-     * @return EncryptingCacheDecorator
+     * @return EncryptingDecorator
      */
     abstract protected function getInstance(Cache $decorated);
 }
