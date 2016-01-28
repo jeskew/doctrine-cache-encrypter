@@ -4,7 +4,7 @@
 [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/jeskew/doctrine-cache-encrypter/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/jeskew/doctrine-cache-encrypter/?branch=master)
 [![Code Coverage](https://scrutinizer-ci.com/g/jeskew/doctrine-cache-encrypter/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/jeskew/doctrine-cache-encrypter/?branch=master)
 [![Apache 2 License](https://img.shields.io/packagist/l/jsq/doctrine-cache-encrypter.svg?style=flat)](https://www.apache.org/licenses/LICENSE-2.0.html)
-[![Total Downloads](https://img.shields.io/packagist/dt/jsq/doctrine-cache-encrypter.svg?style=flat)](https://packagist.org/packages/jeskew/doctrine-cache-encrypter)
+[![Total Downloads](https://img.shields.io/packagist/dt/jsq/doctrine-cache-encrypter.svg?style=flat)](https://packagist.org/packages/jsq/doctrine-cache-encrypter)
 [![Author](http://img.shields.io/badge/author-@jreskew-blue.svg?style=flat-square)](https://twitter.com/jreskew)
 
 Having to encrypt your data at rest shouldn't keep you from using the open-source
