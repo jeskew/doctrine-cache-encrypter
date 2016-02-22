@@ -44,14 +44,6 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
         $this->instance->delete($id);
     }
 
-    public function testProxiesFetchStatCallsToDecoratedCache()
-    {
-        $this->decorated->expects($this->once())
-            ->method('getStats')
-            ->with();
-        $this->instance->getStats();
-    }
-
     /**
      * @dataProvider cacheableDataProvider
      *
@@ -66,9 +58,7 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
             ->with(
                 $this->equalTo($id),
                 $this->callback(function ($arg) use ($data) {
-                    return $arg !== $data
-                        && $arg instanceof EncryptedValue
-                        && $data !== $arg->getCipherText();
+                    return $arg !== $data;
                 }),
                 $this->equalTo(0)
             );
@@ -90,6 +80,41 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
 
         $this->assertNotEquals($data, $this->fsCache->fetch($id));
         $this->assertEquals($data, $instance->fetch($id));
+    }
+
+    /**
+     * @dataProvider cacheableDataProvider
+     *
+     * @param mixed $data
+     */
+    public function testReportsDecryptableDataAsHit($data)
+    {
+        $decorated = new ArrayCache;
+        $instance = $this->getInstance($decorated);
+        $id = uniqid(time());
+
+        $instance->save($id, $data, 0);
+
+        $this->assertEquals($data, $instance->fetch($id));
+        $this->assertEquals(1, $instance->getStats()[Cache::STATS_HITS]);
+        $this->assertEquals(0, $instance->getStats()[Cache::STATS_MISSES]);
+    }
+
+    /**
+     * @dataProvider cacheableDataProvider
+     *
+     * @param mixed $data
+     */
+    public function testReportsTimeSpentOnEncryption($data)
+    {
+        $decorated = new ArrayCache;
+        $instance = $this->getInstance($decorated);
+        $id = uniqid(time());
+
+        $instance->save($id, $data, 0);
+
+        $this->assertEquals($data, $instance->fetch($id));
+        $this->assertGreaterThan(0, $instance->getStats()['encryption_time']);
     }
 
     public function testReturnsFalseWhenFetchCalledWithUnrecognizedKey()
@@ -114,6 +139,25 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($instance->fetch($id));
     }
 
+    /**
+     * @dataProvider cacheableDataProvider
+     *
+     * @param mixed $data
+     */
+    public function testReportsUnencryptedDataAsMiss($data)
+    {
+        $decorated = new ArrayCache;
+        $instance = $this->getInstance($decorated);
+        $id = uniqid(time());
+
+        $decorated->save($id, $data);
+
+        $this->assertEquals($data, $decorated->fetch($id));
+        $this->assertFalse($instance->fetch($id));
+        $this->assertEquals(0, $instance->getStats()[Cache::STATS_HITS]);
+        $this->assertEquals(1, $instance->getStats()[Cache::STATS_MISSES]);
+    }
+
     public function testContainsReturnsFalseWhenDecoratedCacheHasNoData()
     {
         $instance = $this->getInstance(new ArrayCache);
@@ -136,6 +180,22 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
         $decorated->save($id, $data);
         $this->assertTrue($decorated->contains($id));
         $this->assertFalse($instance->contains($id));
+    }
+
+    /**
+     * @dataProvider cacheableDataProvider
+     *
+     * @param mixed $data
+     */
+    public function testContainsReturnsTrueWhenKeyHasUnencryptedData($data)
+    {
+        $decorated = new ArrayCache;
+        $instance = $this->getInstance($decorated);
+        $id = uniqid(time());
+
+        $instance->save($id, $data);
+        $this->assertTrue($decorated->contains($id));
+        $this->assertTrue($instance->contains($id));
     }
 
     public function cacheableDataProvider()

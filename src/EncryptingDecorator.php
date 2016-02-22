@@ -5,6 +5,8 @@ use Doctrine\Common\Cache\Cache;
 
 abstract class EncryptingDecorator implements Cache
 {
+    use EncryptionStatsTrait;
+
     /** @var Cache */
     protected $decorated;
 
@@ -23,10 +25,12 @@ abstract class EncryptingDecorator implements Cache
     {
         $stored = $this->decorated->fetch($id);
         if ($this->isDataDecryptable($stored, $id)) {
-            return $this->decrypt($stored);
+            return $this->returnHit(
+                $this->callAndTime([$this, 'decrypt'], [$stored])
+            );
         }
 
-        return false;
+        return $this->returnMiss(false);
     }
 
     /**
@@ -34,8 +38,11 @@ abstract class EncryptingDecorator implements Cache
      */
     public function save($id, $data, $ttl = 0)
     {
-        return $this->decorated
-            ->save($id, $this->encrypt($data, $id), $ttl);
+        return $this->decorated->save(
+            $id,
+            $this->callAndTime([$this, 'encrypt'], [$data, $id]),
+            $ttl
+        );
     }
 
     /**
@@ -55,8 +62,7 @@ abstract class EncryptingDecorator implements Cache
      */
     public function getStats()
     {
-        return $this->decorated
-            ->getStats();
+        return $this->getEncryptionStats($this->decorated->getStats() ?: []);
     }
 
     /**
@@ -72,12 +78,6 @@ abstract class EncryptingDecorator implements Cache
     {
         return hash_hmac('sha256', $encrypted, $id);
     }
-
-    abstract protected function encrypt($data, $id);
-
-    abstract protected function decrypt($data);
-
-    abstract protected function isDataDecryptable($data, $id);
 
     protected function generateIv($method)
     {
@@ -95,4 +95,10 @@ abstract class EncryptingDecorator implements Cache
     {
         return openssl_decrypt($string, $method, $key, 0, $iv);
     }
+
+    abstract protected function encrypt($data, $id);
+
+    abstract protected function decrypt($data);
+
+    abstract protected function isDataDecryptable($data, $id);
 }
