@@ -182,6 +182,22 @@ abstract class EncryptingCacheDecoratorTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($instance->contains($id));
     }
 
+    /**
+     * @dataProvider cacheableDataProvider
+     *
+     * @param mixed $data
+     */
+    public function testContainsReturnsTrueWhenKeyHasUnencryptedData($data)
+    {
+        $decorated = new ArrayCache;
+        $instance = $this->getInstance($decorated);
+        $id = uniqid(time());
+
+        $instance->save($id, $data);
+        $this->assertTrue($decorated->contains($id));
+        $this->assertTrue($instance->contains($id));
+    }
+
     public function cacheableDataProvider()
     {
         return [
