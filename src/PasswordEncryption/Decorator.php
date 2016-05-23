@@ -2,6 +2,7 @@
 namespace Jsq\Cache\PasswordEncryption;
 
 use Doctrine\Common\Cache\Cache;
+use Jsq\Cache\EncryptedValue;
 use Jsq\Cache\EncryptingDecorator;
 
 class Decorator extends EncryptingDecorator
@@ -21,16 +22,16 @@ class Decorator extends EncryptingDecorator
         $this->cipher = $cipher;
     }
 
-    protected function isDataDecryptable($data, $id)
+    protected function isDataDecryptable($data, string $id): bool
     {
         return $data instanceof Value
             && $data->getMac() === $this->authenticate($id, $data->getCipherText());
     }
 
-    protected function encrypt($data, $id)
+    protected function encrypt($data, string $id): EncryptedValue
     {
         $iv = $this->generateIv($this->cipher);
-        $cipherText = $this->encryptString(
+        $cipherText = $this->encipher(
             serialize($data),
             $this->cipher,
             $this->passphrase,
@@ -49,7 +50,7 @@ class Decorator extends EncryptingDecorator
     {
         if (!$data instanceof Value) return false;
 
-        return unserialize($this->decryptString(
+        return unserialize($this->decipher(
             $data->getCipherText(),
             $data->getMethod(),
             $this->passphrase,

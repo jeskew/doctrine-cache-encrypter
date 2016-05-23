@@ -1,8 +1,6 @@
 <?php
 namespace Jsq\Cache;
 
-use Doctrine\Common\Cache\Cache;
-
 trait EncryptionStatsTrait
 {
     private $hits = 0;

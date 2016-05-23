@@ -2,11 +2,11 @@
 namespace Jsq\Cache\IronEncryption;
 
 use Doctrine\Common\Cache\Cache;
-use Exception;
 use Jsq\Cache\EncryptionStatsTrait;
-use Jsq\Iron;
-use Jsq\Iron\PasswordInterface;
-use Jsq\Iron\Token;
+use Iron;
+use Iron\PasswordInterface;
+use Iron\Token;
+use Throwable;
 
 class Decorator implements Cache
 {
@@ -24,6 +24,13 @@ class Decorator implements Cache
         $password,
         $cipher = Iron\Iron::DEFAULT_ENCRYPTION_METHOD
     ) {
+        if (!class_exists(Iron\Iron::class)) {
+            // @codeCoverageIgnoreStart
+            throw new \RuntimeException('You must install'
+                . ' jsq/iron-php to use the Iron decorator.');
+            // @codeCoverageIgnoreEnd
+        }
+
         $this->decorated = $decorated;
         $this->password = Iron\normalize_password($password);
         $this->iron = new Iron\Iron($cipher);
@@ -32,11 +39,16 @@ class Decorator implements Cache
     public function fetch($id)
     {
         try {
-            return $this->returnHit($this->callAndTime(
-                [$this->iron, 'decrypt'],
-                [$this->password, $this->decorated->fetch($id)]
-            ));
-        } catch (Exception $e) {
+            return $this->returnHit($this->callAndTime(function () use ($id) {
+                return json_decode($this->iron->decryptToken(
+                    Token::fromSealed(
+                        $this->password,
+                        $this->decorated->fetch($id)
+                    ),
+                    $this->password
+                ), true);
+            }));
+        } catch (Throwable $e) {
             return $this->returnMiss(false);
         }
     }
@@ -49,7 +61,7 @@ class Decorator implements Cache
                 $this->decorated->fetch($id)
             );
             return true;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             return false;
         }
     }
@@ -58,10 +70,10 @@ class Decorator implements Cache
     {
         return $this->decorated->save(
             $id,
-            (string) $this->callAndTime(
-                [$this->iron, 'encrypt'],
-                [$this->password, $data, $ttl]
-            ),
+            (string) $this->callAndTime(function () use ($data, $ttl) {
+                return $this->iron
+                    ->encrypt($this->password, json_encode($data), $ttl);
+            }),
             $ttl
         );
     }
