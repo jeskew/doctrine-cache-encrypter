@@ -3,6 +3,7 @@ namespace Jsq\Cache\EnvelopeEncryption;
 
 use Doctrine\Common\Cache\Cache;
 use InvalidArgumentException as IAE;
+use Jsq\Cache\EncryptedValue;
 use Jsq\Cache\EncryptingDecorator;
 
 class Decorator extends EncryptingDecorator
@@ -42,7 +43,7 @@ class Decorator extends EncryptingDecorator
         openssl_free_key($this->privateKey);
     }
 
-    protected function isDataDecryptable($data, $id)
+    protected function isDataDecryptable($data, string $id): bool
     {
         return $data instanceof Value
             && $this->validateSignature(
@@ -51,11 +52,11 @@ class Decorator extends EncryptingDecorator
             );
     }
 
-    protected function encrypt($data, $id)
+    protected function encrypt($data, string $id): EncryptedValue
     {
         $key = $this->generateIv($this->cipher);
         $iv = $this->generateIv($this->cipher);
-        $cipherText = $this->encryptString(serialize($data), $this->cipher, $key, $iv);
+        $cipherText = $this->encipher(serialize($data), $this->cipher, $key, $iv);
 
         return new Value(
             $cipherText,
@@ -70,7 +71,7 @@ class Decorator extends EncryptingDecorator
     {
         if (!$data instanceof Value) return false;
 
-        return unserialize($this->decryptString(
+        return unserialize($this->decipher(
             $data->getCipherText(),
             $data->getMethod(),
             $this->decryptEnvelopeKey($data->getEnvelopeKey()),

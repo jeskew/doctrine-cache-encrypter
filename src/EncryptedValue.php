@@ -42,26 +42,17 @@ abstract class EncryptedValue implements JsonSerializable, Serializable
         $this->initializationVector = base64_decode($data->iv);
     }
 
-    /**
-     * @return string
-     */
-    public function getCipherText()
+    public function getCipherText(): string
     {
         return $this->cipherText;
     }
 
-    /**
-     * @return string
-     */
-    public function getMethod()
+    public function getMethod(): string
     {
         return $this->method;
     }
 
-    /**
-     * @return string
-     */
-    public function getInitializationVector()
+    public function getInitializationVector(): string
     {
         return $this->initializationVector;
     }

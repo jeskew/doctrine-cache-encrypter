@@ -3,7 +3,7 @@ namespace Jsq\Cache\IronEncryption;
 
 use Doctrine\Common\Cache\Cache;
 use Jsq\Cache\EncryptingCacheDecoratorTest;
-use Jsq\Iron\Password;
+use Iron\Password;
 
 class DecoratorTest extends EncryptingCacheDecoratorTest
 {
